@@ -32,12 +32,6 @@
 // 		console.error('There was a problem with the fetch operation:', error)
 // 	})
 
-function getRandomInt(min, max) {
-	min = Math.ceil(min)
-	max = Math.floor(max)
-	return Math.floor(Math.random() * (max - min + 1)) + min
-}
-
 const jsdom = require('jsdom')
 const { JSDOM } = jsdom
 const fs = require('fs')
@@ -53,6 +47,19 @@ const getObjectKeys = object => {
 
 	// Теперь переменная allKeys содержит все ключи из массива объектов
 	return allKeys
+}
+
+function checkKeywords(inputString) {
+	const keywords = ['утеплен', 'фліс', 'куртк', 'термо']
+
+	for (const keyword of keywords) {
+		const regex = new RegExp(keyword, 'i') // 'i' означает регистронезависимый поиск
+		if (inputString.match(regex)) {
+			return true
+		}
+	}
+
+	return false
 }
 
 const findElementsByClass = (htmlString, className) => {
@@ -178,7 +185,7 @@ const getClothes = async (clothesHrefs, clothesKeys) => {
 				imageSrcs: clotheImagesHrefs,
 				price: Number(clothePriceMatch[1]),
 				name: clotheNameMatch[1],
-				isWarm: getRandomInt(0, 1) === 0 ? false : true,
+				isWarm: checkKeywords(clotheNameMatch[1]),
 			})
 			id += 1
 		}
