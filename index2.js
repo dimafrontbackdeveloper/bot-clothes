@@ -88,38 +88,773 @@ bot.on('message', async msg => {
 	const chatId = msg.chat.id
 
 	if (msg.photo) {
-		const photo = msg.photo[msg.photo.length - 1]
-		const fileId = photo.file_id
+		if (
+			!!state[chatId]?.productName &&
+			!!state[chatId]?.paymentType &&
+			!!state[chatId]?.phoneNumber &&
+			!!state[chatId]?.size &&
+			!!state[chatId]?.fullName &&
+			!!state[chatId]?.city &&
+			!!state[chatId]?.mail
+		) {
+			const photo = msg.photo[msg.photo.length - 1]
+			const fileId = photo.file_id
 
-		bot.getFile(fileId).then(fileInfo => {
-			const fileUrl = `https://api.telegram.org/file/bot${token}/${fileInfo.file_path}`
+			await bot.getFile(fileId).then(fileInfo => {
+				const fileUrl = `https://api.telegram.org/file/bot${token}/${fileInfo.file_path}`
 
-			const imageStream = fs.createWriteStream('downloaded_image.jpg')
-			https.get(fileUrl, response => {
-				response.on('end', () => {
-					sharp('downloaded_image.jpg')
-						.resize(300, 200)
-						.toFile('processed_image.jpg', (err, info) => {
-							if (!err) {
-								// Пересылаем обработанное изображение в другой чат
-								bot.sendPhoto(chatForOrdersId, 'processed_image.jpg', {
-									caption: 'Обработанное изображение',
-								})
-							} else {
-								console.error(err)
-							}
-						})
-				})
+				// Создаем поток для сохранения изображения
+				const imageStream = fs.createWriteStream('downloaded_image.jpg')
 
-				response.pipe(imageStream)
-
+				// Обработка ошибок при загрузке изображения
 				imageStream.on('error', err => {
 					console.error('Error saving image file:', err)
 				})
+
+				// Загружаем изображение
+				https.get(fileUrl, response => {
+					if (response.statusCode !== 200) {
+						console.error(
+							'Failed to download image. HTTP Status Code:',
+							response.statusCode
+						)
+						return
+					}
+
+					// Пайпим поток ответа в поток сохранения изображения
+					response.pipe(imageStream)
+
+					// Обработка события завершения загрузки изображения
+					imageStream.on('finish', () => {
+						// Закрываем поток перед обработкой изображения
+						imageStream.end()
+
+						// Обрабатываем изображение с помощью sharp
+						sharp('downloaded_image.jpg').toFile(
+							'processed_image.jpg',
+							(err, info) => {
+								if (!err) {
+									// Пересылаем обработанное изображение в другой чат
+									bot.sendPhoto(chatForOrdersId, 'processed_image.jpg', {
+										caption: `
+																\n Ім'я: ${state[chatId]?.fullName}
+																\nНомер телефону: ${state[chatId]?.phoneNumber}
+																\nМісто: ${state[chatId]?.city}
+																\nВідділення пошти: ${state[chatId]?.mail}
+																\nТовар: ${state[chatId]?.productName}
+																\nТип оплати: ${state[chatId]?.paymentType === 'imposed' ? 'наложка' : 'онлайн'}
+																\nUPD: товар замовили за допомогою бота
+														`,
+									})
+								} else {
+									console.error('Error processing image:', err)
+								}
+							}
+						)
+					})
+				})
 			})
-		})
-	} else {
-		bot.sendMessage(chatId, 'Пожалуйста, отправьте изображение.')
+
+			await bot.sendMessage(
+				chatId,
+				`Ви успішно замовили: ${state[chatId]?.productName}!`
+			)
+
+			if (
+				state[chatId]?.productName === 'Тактичні штани 5.45style піксель жіночі'
+			) {
+				const category = '/futbolky/'
+
+				const clothe = clothes[category].find(
+					clothe =>
+						clothe.name === 'Тактичний лонгслів жіночий 5.45style піксель'
+				)
+
+				const itemOptions = {
+					reply_markup: {
+						inline_keyboard: [
+							[
+								{
+									text: 'Так',
+									callback_data: `is_want_induct true ${category} ${clothe.id}`,
+								},
+								{
+									text: 'Ні',
+									callback_data: `is_want_induct false`,
+								},
+							],
+						],
+					},
+				}
+
+				await bot.sendMessage(
+					chatId,
+					`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
+				)
+
+				await bot.sendMessage(
+					chatId,
+					`Бажаєте ознайомитись з товаром?`,
+					itemOptions
+				)
+			} else if (
+				state[chatId]?.productName ===
+				'Тактичний утеплений лонгслів 5.45style з місцем під жетон'
+			) {
+				const category = '/shtany/'
+
+				const clothe = clothes[category].find(
+					clothe => clothe.name === 'Штани Soft Shell на флісі чорні'
+				)
+				const itemOptions = {
+					reply_markup: {
+						inline_keyboard: [
+							[
+								{
+									text: 'Так',
+									callback_data: `is_want_induct true ${category} ${clothe.id}`,
+								},
+								{
+									text: 'Ні',
+									callback_data: `is_want_induct false`,
+								},
+							],
+						],
+					},
+				}
+
+				await bot.sendMessage(
+					chatId,
+					`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
+				)
+
+				await bot.sendMessage(
+					chatId,
+					`Бажаєте ознайомитись з товаром?`,
+					itemOptions
+				)
+			} else if (
+				state[chatId]?.productName === 'Штани Soft Shell на флісі чорні'
+			) {
+				const category = '/futbolky/'
+
+				const clothe = clothes[category].find(
+					clothe =>
+						clothe.name ===
+						'Тактичний утеплений лонгслів 5.45style з місцем під жетон'
+				)
+				const itemOptions = {
+					reply_markup: {
+						inline_keyboard: [
+							[
+								{
+									text: 'Так',
+									callback_data: `is_want_induct true ${category} ${clothe.id}`,
+								},
+								{
+									text: 'Ні',
+									callback_data: `is_want_induct false`,
+								},
+							],
+						],
+					},
+				}
+
+				await bot.sendMessage(
+					chatId,
+					`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
+				)
+
+				await bot.sendMessage(
+					chatId,
+					`Бажаєте ознайомитись з товаром?`,
+					itemOptions
+				)
+			} else if (
+				state[chatId]?.productName ===
+				'Тактичний лонгслів 5.45style синій жіночий'
+			) {
+				const category = '/shtany/'
+
+				const clothe = clothes[category].find(
+					clothe => clothe.name === 'Тактичні штани 5.45style темно-сині жіночі'
+				)
+				const itemOptions = {
+					reply_markup: {
+						inline_keyboard: [
+							[
+								{
+									text: 'Так',
+									callback_data: `is_want_induct true ${category} ${clothe.id}`,
+								},
+								{
+									text: 'Ні',
+									callback_data: `is_want_induct false`,
+								},
+							],
+						],
+					},
+				}
+
+				await bot.sendMessage(
+					chatId,
+					`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
+				)
+
+				await bot.sendMessage(
+					chatId,
+					`Бажаєте ознайомитись з товаром?`,
+					itemOptions
+				)
+			} else if (
+				state[chatId]?.productName ===
+				'Тактичний лонгслів 5.45style black із жетоном'
+			) {
+				const category = '/shtany/'
+
+				const clothe = clothes[category].find(
+					clothe => clothe.name === 'Тактичні штани 5.45style чорні жіночі'
+				)
+				const itemOptions = {
+					reply_markup: {
+						inline_keyboard: [
+							[
+								{
+									text: 'Так',
+									callback_data: `is_want_induct true ${category} ${clothe.id}`,
+								},
+								{
+									text: 'Ні',
+									callback_data: `is_want_induct false`,
+								},
+							],
+						],
+					},
+				}
+
+				await bot.sendMessage(
+					chatId,
+					`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
+				)
+
+				await bot.sendMessage(
+					chatId,
+					`Бажаєте ознайомитись з товаром?`,
+					itemOptions
+				)
+			} else if (
+				state[chatId]?.productName === 'Тактичні штани 5.45style чорні жіночі'
+			) {
+				const category = '/futbolky/'
+
+				const clothe = clothes[category].find(
+					clothe =>
+						clothe.name === 'Тактичний лонгслів 5.45style black із жетоном'
+				)
+				const itemOptions = {
+					reply_markup: {
+						inline_keyboard: [
+							[
+								{
+									text: 'Так',
+									callback_data: `is_want_induct true ${category} ${clothe.id}`,
+								},
+								{
+									text: 'Ні',
+									callback_data: `is_want_induct false`,
+								},
+							],
+						],
+					},
+				}
+
+				await bot.sendMessage(
+					chatId,
+					`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
+				)
+
+				await bot.sendMessage(
+					chatId,
+					`Бажаєте ознайомитись з товаром?`,
+					itemOptions
+				)
+			} else if (
+				state[chatId]?.productName ===
+				'Тактичні штани 5.45style темно-сині жіночі'
+			) {
+				const category = '/futbolky/'
+
+				const clothe = clothes[category].find(
+					clothe => clothe.name === 'Тактичний лонгслів 5.45style синій жіночий'
+				)
+				const itemOptions = {
+					reply_markup: {
+						inline_keyboard: [
+							[
+								{
+									text: 'Так',
+									callback_data: `is_want_induct true ${category} ${clothe.id}`,
+								},
+								{
+									text: 'Ні',
+									callback_data: `is_want_induct false`,
+								},
+							],
+						],
+					},
+				}
+
+				await bot.sendMessage(
+					chatId,
+					`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
+				)
+
+				await bot.sendMessage(
+					chatId,
+					`Бажаєте ознайомитись з товаром?`,
+					itemOptions
+				)
+			} else if (
+				state[chatId]?.productName ===
+				'Тактичний лонгслів 5.45style жіночий black'
+			) {
+				const category = '/shtany/'
+
+				const clothe = clothes[category].find(
+					clothe => clothe.name === 'Тактичні штани 5.45style чорні жіночі'
+				)
+				const itemOptions = {
+					reply_markup: {
+						inline_keyboard: [
+							[
+								{
+									text: 'Так',
+									callback_data: `is_want_induct true ${category} ${clothe.id}`,
+								},
+								{
+									text: 'Ні',
+									callback_data: `is_want_induct false`,
+								},
+							],
+						],
+					},
+				}
+
+				await bot.sendMessage(
+					chatId,
+					`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
+				)
+
+				await bot.sendMessage(
+					chatId,
+					`Бажаєте ознайомитись з товаром?`,
+					itemOptions
+				)
+			} else if (
+				state[chatId]?.productName === 'Тактичні штани 5.45style чорні жіночі'
+			) {
+				const category = '/futbolky/'
+
+				const clothe = clothes[category].find(
+					clothe => clothe.name === 'Тактичний лонгслів 5.45style жіночий black'
+				)
+				const itemOptions = {
+					reply_markup: {
+						inline_keyboard: [
+							[
+								{
+									text: 'Так',
+									callback_data: `is_want_induct true ${category} ${clothe.id}`,
+								},
+								{
+									text: 'Ні',
+									callback_data: `is_want_induct false`,
+								},
+							],
+						],
+					},
+				}
+
+				await bot.sendMessage(
+					chatId,
+					`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
+				)
+
+				await bot.sendMessage(
+					chatId,
+					`Бажаєте ознайомитись з товаром?`,
+					itemOptions
+				)
+			} else if (state[chatId]?.productName === 'Куртка Soft Shell олива') {
+				const category = '/shtany/'
+
+				const clothe = clothes[category].find(
+					clothe => clothe.name === 'Штани Soft Shell на флісі олива'
+				)
+				const itemOptions = {
+					reply_markup: {
+						inline_keyboard: [
+							[
+								{
+									text: 'Так',
+									callback_data: `is_want_induct true ${category} ${clothe.id}`,
+								},
+								{
+									text: 'Ні',
+									callback_data: `is_want_induct false`,
+								},
+							],
+						],
+					},
+				}
+
+				await bot.sendMessage(
+					chatId,
+					`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
+				)
+
+				await bot.sendMessage(
+					chatId,
+					`Бажаєте ознайомитись з товаром?`,
+					itemOptions
+				)
+			} else if (
+				state[chatId]?.productName === 'Штани Soft Shell на флісі олива'
+			) {
+				const category = '/kurtky/'
+
+				const clothe = clothes[category].find(
+					clothe => clothe.name === 'Куртка Soft Shell олива'
+				)
+				const itemOptions = {
+					reply_markup: {
+						inline_keyboard: [
+							[
+								{
+									text: 'Так',
+									callback_data: `is_want_induct true ${category} ${clothe.id}`,
+								},
+								{
+									text: 'Ні',
+									callback_data: `is_want_induct false`,
+								},
+							],
+						],
+					},
+				}
+
+				await bot.sendMessage(
+					chatId,
+					`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
+				)
+
+				await bot.sendMessage(
+					chatId,
+					`Бажаєте ознайомитись з товаром?`,
+					itemOptions
+				)
+			} else if (
+				state[chatId]?.productName ===
+				'Тактичний лонгслів жіночий 5.45style піксель'
+			) {
+				const category = '/shtany/'
+
+				const clothe = clothes[category].find(
+					clothe => clothe.name === 'Тактичні штани 5.45style піксель жіночі'
+				)
+				const itemOptions = {
+					reply_markup: {
+						inline_keyboard: [
+							[
+								{
+									text: 'Так',
+									callback_data: `is_want_induct true ${category} ${clothe.id}`,
+								},
+								{
+									text: 'Ні',
+									callback_data: `is_want_induct false`,
+								},
+							],
+						],
+					},
+				}
+
+				await bot.sendMessage(
+					chatId,
+					`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
+				)
+
+				await bot.sendMessage(
+					chatId,
+					`Бажаєте ознайомитись з товаром?`,
+					itemOptions
+				)
+			} else if (
+				state[chatId]?.productName === 'Тактичні штани 5.45style піксель жіночі'
+			) {
+				const category = '/futbolky/'
+
+				const clothe = clothes[category].find(
+					clothe =>
+						clothe.name === 'Тактичний лонгслів жіночий 5.45style піксель'
+				)
+				const itemOptions = {
+					reply_markup: {
+						inline_keyboard: [
+							[
+								{
+									text: 'Так',
+									callback_data: `is_want_induct true ${category} ${clothe.id}`,
+								},
+								{
+									text: 'Ні',
+									callback_data: `is_want_induct false`,
+								},
+							],
+						],
+					},
+				}
+
+				await bot.sendMessage(
+					chatId,
+					`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
+				)
+
+				await bot.sendMessage(
+					chatId,
+					`Бажаєте ознайомитись з товаром?`,
+					itemOptions
+				)
+			} else if (
+				state[chatId]?.productName === 'Лонслів НГУ жіночий 5.45style'
+			) {
+				const category = '/shtany/'
+
+				const clothe = clothes[category].find(
+					clothe =>
+						clothe.name === 'Тактичні штани 5.45style жіночі олива (хакі)'
+				)
+				const itemOptions = {
+					reply_markup: {
+						inline_keyboard: [
+							[
+								{
+									text: 'Так',
+									callback_data: `is_want_induct true ${category} ${clothe.id}`,
+								},
+								{
+									text: 'Ні',
+									callback_data: `is_want_induct false`,
+								},
+							],
+						],
+					},
+				}
+
+				await bot.sendMessage(
+					chatId,
+					`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
+				)
+
+				await bot.sendMessage(
+					chatId,
+					`Бажаєте ознайомитись з товаром?`,
+					itemOptions
+				)
+			} else if (
+				state[chatId]?.productName ===
+				'Тактичні штани 5.45style жіночі олива (хакі)'
+			) {
+				const category = '/futbolky/'
+
+				const clothe = clothes[category].find(
+					clothe => clothe.name === 'Лонслів НГУ жіночий 5.45style'
+				)
+				const itemOptions = {
+					reply_markup: {
+						inline_keyboard: [
+							[
+								{
+									text: 'Так',
+									callback_data: `is_want_induct true ${category} ${clothe.id}`,
+								},
+								{
+									text: 'Ні',
+									callback_data: `is_want_induct false`,
+								},
+							],
+						],
+					},
+				}
+
+				await bot.sendMessage(
+					chatId,
+					`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
+				)
+
+				await bot.sendMessage(
+					chatId,
+					`Бажаєте ознайомитись з товаром?`,
+					itemOptions
+				)
+			} else if (
+				state[chatId]?.productName ===
+				'Тактичний лонгслів жіночий 5.45style піксель'
+			) {
+				const category = '/shtany/'
+
+				const clothe = clothes[category].find(
+					clothe => clothe.name === 'Тактичні штани 5.45style піксель жіночі'
+				)
+				const itemOptions = {
+					reply_markup: {
+						inline_keyboard: [
+							[
+								{
+									text: 'Так',
+									callback_data: `is_want_induct true ${category} ${clothe.id}`,
+								},
+								{
+									text: 'Ні',
+									callback_data: `is_want_induct false`,
+								},
+							],
+						],
+					},
+				}
+
+				await bot.sendMessage(
+					chatId,
+					`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
+				)
+
+				await bot.sendMessage(
+					chatId,
+					`Бажаєте ознайомитись з товаром?`,
+					itemOptions
+				)
+			} else if (
+				state[chatId]?.productName ===
+				'Тактичний утеплений лонгслів 5.45style з місцем під жетон'
+			) {
+				const category = '/shtany/'
+
+				const clothe = clothes[category].find(
+					clothe => clothe.name === 'Тактичні штани 5.45style чорні жіночі'
+				)
+				const itemOptions = {
+					reply_markup: {
+						inline_keyboard: [
+							[
+								{
+									text: 'Так',
+									callback_data: `is_want_induct true ${category} ${clothe.id}`,
+								},
+								{
+									text: 'Ні',
+									callback_data: `is_want_induct false`,
+								},
+							],
+						],
+					},
+				}
+
+				await bot.sendMessage(
+					chatId,
+					`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
+				)
+
+				await bot.sendMessage(
+					chatId,
+					`Бажаєте ознайомитись з товаром?`,
+					itemOptions
+				)
+			} else if (
+				state[chatId]?.productName === 'Тактичні штани 5.45style чорні жіночі'
+			) {
+				const category = '/futbolky/'
+
+				const clothe = clothes[category].find(
+					clothe =>
+						clothe.name ===
+						'Тактичний утеплений лонгслів 5.45style з місцем під жетон'
+				)
+				const itemOptions = {
+					reply_markup: {
+						inline_keyboard: [
+							[
+								{
+									text: 'Так',
+									callback_data: `is_want_induct true ${category} ${clothe.id}`,
+								},
+								{
+									text: 'Ні',
+									callback_data: `is_want_induct false`,
+								},
+							],
+						],
+					},
+				}
+
+				await bot.sendMessage(
+					chatId,
+					`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
+				)
+
+				await bot.sendMessage(
+					chatId,
+					`Бажаєте ознайомитись з товаром?`,
+					itemOptions
+				)
+			} else {
+				const category = '/holovni-ubory/'
+				const isManClothe = !state[chatId]?.productName.includes('жіноч')
+
+				const manOrWomanClothes = clothes[category].filter(clothe =>
+					!isManClothe
+						? clothe.name.includes('жіноч')
+						: !clothe.name.includes('жіноч')
+				)
+
+				const categoryClothesLength = manOrWomanClothes.length
+				const idOfRandomClothe = getRandomInt(0, categoryClothesLength - 1)
+
+				const randomClothe = manOrWomanClothes.find(
+					(clothe, i) => i === Number(idOfRandomClothe)
+				)
+
+				const itemOptions = {
+					reply_markup: {
+						inline_keyboard: [
+							[
+								{
+									text: 'Так',
+									callback_data: `is_want_induct true ${category} ${randomClothe.id}`,
+								},
+								{
+									text: 'Ні',
+									callback_data: `is_want_induct false`,
+								},
+							],
+						],
+					},
+				}
+
+				await bot.sendMessage(
+					chatId,
+					`Разом з товаром що ви обрали найчастіше замовлять: ${randomClothe.name}!`
+				)
+
+				await bot.sendMessage(
+					chatId,
+					`Бажаєте ознайомитись з товаром?`,
+					itemOptions
+				)
+			}
+
+			state[chatId] = {}
+			return
+		}
 	}
 
 	if (msg.text === '/start') {
@@ -424,711 +1159,6 @@ bot.on('text', async msg => {
 	) {
 		state[chatId].mail = msg.text
 
-		await bot.sendMessage(
-			chatId,
-			`Ви успішно замовили: ${state[chatId]?.productName}!`
-		)
-
-		if (
-			state[chatId]?.productName === 'Тактичні штани 5.45style піксель жіночі'
-		) {
-			const category = '/futbolky/'
-
-			const clothe = clothes[category].find(
-				clothe => clothe.name === 'Тактичний лонгслів жіночий 5.45style піксель'
-			)
-
-			const itemOptions = {
-				reply_markup: {
-					inline_keyboard: [
-						[
-							{
-								text: 'Так',
-								callback_data: `is_want_induct true ${category} ${clothe.id}`,
-							},
-							{
-								text: 'Ні',
-								callback_data: `is_want_induct false`,
-							},
-						],
-					],
-				},
-			}
-
-			await bot.sendMessage(
-				chatId,
-				`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
-			)
-
-			await bot.sendMessage(
-				chatId,
-				`Бажаєте ознайомитись з товаром?`,
-				itemOptions
-			)
-		} else if (
-			state[chatId]?.productName ===
-			'Тактичний утеплений лонгслів 5.45style з місцем під жетон'
-		) {
-			const category = '/shtany/'
-
-			const clothe = clothes[category].find(
-				clothe => clothe.name === 'Штани Soft Shell на флісі чорні'
-			)
-			const itemOptions = {
-				reply_markup: {
-					inline_keyboard: [
-						[
-							{
-								text: 'Так',
-								callback_data: `is_want_induct true ${category} ${clothe.id}`,
-							},
-							{
-								text: 'Ні',
-								callback_data: `is_want_induct false`,
-							},
-						],
-					],
-				},
-			}
-
-			await bot.sendMessage(
-				chatId,
-				`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
-			)
-
-			await bot.sendMessage(
-				chatId,
-				`Бажаєте ознайомитись з товаром?`,
-				itemOptions
-			)
-		} else if (
-			state[chatId]?.productName === 'Штани Soft Shell на флісі чорні'
-		) {
-			const category = '/futbolky/'
-
-			const clothe = clothes[category].find(
-				clothe =>
-					clothe.name ===
-					'Тактичний утеплений лонгслів 5.45style з місцем під жетон'
-			)
-			const itemOptions = {
-				reply_markup: {
-					inline_keyboard: [
-						[
-							{
-								text: 'Так',
-								callback_data: `is_want_induct true ${category} ${clothe.id}`,
-							},
-							{
-								text: 'Ні',
-								callback_data: `is_want_induct false`,
-							},
-						],
-					],
-				},
-			}
-
-			await bot.sendMessage(
-				chatId,
-				`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
-			)
-
-			await bot.sendMessage(
-				chatId,
-				`Бажаєте ознайомитись з товаром?`,
-				itemOptions
-			)
-		} else if (
-			state[chatId]?.productName ===
-			'Тактичний лонгслів 5.45style синій жіночий'
-		) {
-			const category = '/shtany/'
-
-			const clothe = clothes[category].find(
-				clothe => clothe.name === 'Тактичні штани 5.45style темно-сині жіночі'
-			)
-			const itemOptions = {
-				reply_markup: {
-					inline_keyboard: [
-						[
-							{
-								text: 'Так',
-								callback_data: `is_want_induct true ${category} ${clothe.id}`,
-							},
-							{
-								text: 'Ні',
-								callback_data: `is_want_induct false`,
-							},
-						],
-					],
-				},
-			}
-
-			await bot.sendMessage(
-				chatId,
-				`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
-			)
-
-			await bot.sendMessage(
-				chatId,
-				`Бажаєте ознайомитись з товаром?`,
-				itemOptions
-			)
-		} else if (
-			state[chatId]?.productName ===
-			'Тактичний лонгслів 5.45style black із жетоном'
-		) {
-			const category = '/shtany/'
-
-			const clothe = clothes[category].find(
-				clothe => clothe.name === 'Тактичні штани 5.45style чорні жіночі'
-			)
-			const itemOptions = {
-				reply_markup: {
-					inline_keyboard: [
-						[
-							{
-								text: 'Так',
-								callback_data: `is_want_induct true ${category} ${clothe.id}`,
-							},
-							{
-								text: 'Ні',
-								callback_data: `is_want_induct false`,
-							},
-						],
-					],
-				},
-			}
-
-			await bot.sendMessage(
-				chatId,
-				`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
-			)
-
-			await bot.sendMessage(
-				chatId,
-				`Бажаєте ознайомитись з товаром?`,
-				itemOptions
-			)
-		} else if (
-			state[chatId]?.productName === 'Тактичні штани 5.45style чорні жіночі'
-		) {
-			const category = '/futbolky/'
-
-			const clothe = clothes[category].find(
-				clothe =>
-					clothe.name === 'Тактичний лонгслів 5.45style black із жетоном'
-			)
-			const itemOptions = {
-				reply_markup: {
-					inline_keyboard: [
-						[
-							{
-								text: 'Так',
-								callback_data: `is_want_induct true ${category} ${clothe.id}`,
-							},
-							{
-								text: 'Ні',
-								callback_data: `is_want_induct false`,
-							},
-						],
-					],
-				},
-			}
-
-			await bot.sendMessage(
-				chatId,
-				`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
-			)
-
-			await bot.sendMessage(
-				chatId,
-				`Бажаєте ознайомитись з товаром?`,
-				itemOptions
-			)
-		} else if (
-			state[chatId]?.productName ===
-			'Тактичні штани 5.45style темно-сині жіночі'
-		) {
-			const category = '/futbolky/'
-
-			const clothe = clothes[category].find(
-				clothe => clothe.name === 'Тактичний лонгслів 5.45style синій жіночий'
-			)
-			const itemOptions = {
-				reply_markup: {
-					inline_keyboard: [
-						[
-							{
-								text: 'Так',
-								callback_data: `is_want_induct true ${category} ${clothe.id}`,
-							},
-							{
-								text: 'Ні',
-								callback_data: `is_want_induct false`,
-							},
-						],
-					],
-				},
-			}
-
-			await bot.sendMessage(
-				chatId,
-				`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
-			)
-
-			await bot.sendMessage(
-				chatId,
-				`Бажаєте ознайомитись з товаром?`,
-				itemOptions
-			)
-		} else if (
-			state[chatId]?.productName ===
-			'Тактичний лонгслів 5.45style жіночий black'
-		) {
-			const category = '/shtany/'
-
-			const clothe = clothes[category].find(
-				clothe => clothe.name === 'Тактичні штани 5.45style чорні жіночі'
-			)
-			const itemOptions = {
-				reply_markup: {
-					inline_keyboard: [
-						[
-							{
-								text: 'Так',
-								callback_data: `is_want_induct true ${category} ${clothe.id}`,
-							},
-							{
-								text: 'Ні',
-								callback_data: `is_want_induct false`,
-							},
-						],
-					],
-				},
-			}
-
-			await bot.sendMessage(
-				chatId,
-				`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
-			)
-
-			await bot.sendMessage(
-				chatId,
-				`Бажаєте ознайомитись з товаром?`,
-				itemOptions
-			)
-		} else if (
-			state[chatId]?.productName === 'Тактичні штани 5.45style чорні жіночі'
-		) {
-			const category = '/futbolky/'
-
-			const clothe = clothes[category].find(
-				clothe => clothe.name === 'Тактичний лонгслів 5.45style жіночий black'
-			)
-			const itemOptions = {
-				reply_markup: {
-					inline_keyboard: [
-						[
-							{
-								text: 'Так',
-								callback_data: `is_want_induct true ${category} ${clothe.id}`,
-							},
-							{
-								text: 'Ні',
-								callback_data: `is_want_induct false`,
-							},
-						],
-					],
-				},
-			}
-
-			await bot.sendMessage(
-				chatId,
-				`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
-			)
-
-			await bot.sendMessage(
-				chatId,
-				`Бажаєте ознайомитись з товаром?`,
-				itemOptions
-			)
-		} else if (state[chatId]?.productName === 'Куртка Soft Shell олива') {
-			const category = '/shtany/'
-
-			const clothe = clothes[category].find(
-				clothe => clothe.name === 'Штани Soft Shell на флісі олива'
-			)
-			const itemOptions = {
-				reply_markup: {
-					inline_keyboard: [
-						[
-							{
-								text: 'Так',
-								callback_data: `is_want_induct true ${category} ${clothe.id}`,
-							},
-							{
-								text: 'Ні',
-								callback_data: `is_want_induct false`,
-							},
-						],
-					],
-				},
-			}
-
-			await bot.sendMessage(
-				chatId,
-				`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
-			)
-
-			await bot.sendMessage(
-				chatId,
-				`Бажаєте ознайомитись з товаром?`,
-				itemOptions
-			)
-		} else if (
-			state[chatId]?.productName === 'Штани Soft Shell на флісі олива'
-		) {
-			const category = '/kurtky/'
-
-			const clothe = clothes[category].find(
-				clothe => clothe.name === 'Куртка Soft Shell олива'
-			)
-			const itemOptions = {
-				reply_markup: {
-					inline_keyboard: [
-						[
-							{
-								text: 'Так',
-								callback_data: `is_want_induct true ${category} ${clothe.id}`,
-							},
-							{
-								text: 'Ні',
-								callback_data: `is_want_induct false`,
-							},
-						],
-					],
-				},
-			}
-
-			await bot.sendMessage(
-				chatId,
-				`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
-			)
-
-			await bot.sendMessage(
-				chatId,
-				`Бажаєте ознайомитись з товаром?`,
-				itemOptions
-			)
-		} else if (
-			state[chatId]?.productName ===
-			'Тактичний лонгслів жіночий 5.45style піксель'
-		) {
-			const category = '/shtany/'
-
-			const clothe = clothes[category].find(
-				clothe => clothe.name === 'Тактичні штани 5.45style піксель жіночі'
-			)
-			const itemOptions = {
-				reply_markup: {
-					inline_keyboard: [
-						[
-							{
-								text: 'Так',
-								callback_data: `is_want_induct true ${category} ${clothe.id}`,
-							},
-							{
-								text: 'Ні',
-								callback_data: `is_want_induct false`,
-							},
-						],
-					],
-				},
-			}
-
-			await bot.sendMessage(
-				chatId,
-				`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
-			)
-
-			await bot.sendMessage(
-				chatId,
-				`Бажаєте ознайомитись з товаром?`,
-				itemOptions
-			)
-		} else if (
-			state[chatId]?.productName === 'Тактичні штани 5.45style піксель жіночі'
-		) {
-			const category = '/futbolky/'
-
-			const clothe = clothes[category].find(
-				clothe => clothe.name === 'Тактичний лонгслів жіночий 5.45style піксель'
-			)
-			const itemOptions = {
-				reply_markup: {
-					inline_keyboard: [
-						[
-							{
-								text: 'Так',
-								callback_data: `is_want_induct true ${category} ${clothe.id}`,
-							},
-							{
-								text: 'Ні',
-								callback_data: `is_want_induct false`,
-							},
-						],
-					],
-				},
-			}
-
-			await bot.sendMessage(
-				chatId,
-				`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
-			)
-
-			await bot.sendMessage(
-				chatId,
-				`Бажаєте ознайомитись з товаром?`,
-				itemOptions
-			)
-		} else if (state[chatId]?.productName === 'Лонслів НГУ жіночий 5.45style') {
-			const category = '/shtany/'
-
-			const clothe = clothes[category].find(
-				clothe => clothe.name === 'Тактичні штани 5.45style жіночі олива (хакі)'
-			)
-			const itemOptions = {
-				reply_markup: {
-					inline_keyboard: [
-						[
-							{
-								text: 'Так',
-								callback_data: `is_want_induct true ${category} ${clothe.id}`,
-							},
-							{
-								text: 'Ні',
-								callback_data: `is_want_induct false`,
-							},
-						],
-					],
-				},
-			}
-
-			await bot.sendMessage(
-				chatId,
-				`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
-			)
-
-			await bot.sendMessage(
-				chatId,
-				`Бажаєте ознайомитись з товаром?`,
-				itemOptions
-			)
-		} else if (
-			state[chatId]?.productName ===
-			'Тактичні штани 5.45style жіночі олива (хакі)'
-		) {
-			const category = '/futbolky/'
-
-			const clothe = clothes[category].find(
-				clothe => clothe.name === 'Лонслів НГУ жіночий 5.45style'
-			)
-			const itemOptions = {
-				reply_markup: {
-					inline_keyboard: [
-						[
-							{
-								text: 'Так',
-								callback_data: `is_want_induct true ${category} ${clothe.id}`,
-							},
-							{
-								text: 'Ні',
-								callback_data: `is_want_induct false`,
-							},
-						],
-					],
-				},
-			}
-
-			await bot.sendMessage(
-				chatId,
-				`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
-			)
-
-			await bot.sendMessage(
-				chatId,
-				`Бажаєте ознайомитись з товаром?`,
-				itemOptions
-			)
-		} else if (
-			state[chatId]?.productName ===
-			'Тактичний лонгслів жіночий 5.45style піксель'
-		) {
-			const category = '/shtany/'
-
-			const clothe = clothes[category].find(
-				clothe => clothe.name === 'Тактичні штани 5.45style піксель жіночі'
-			)
-			const itemOptions = {
-				reply_markup: {
-					inline_keyboard: [
-						[
-							{
-								text: 'Так',
-								callback_data: `is_want_induct true ${category} ${clothe.id}`,
-							},
-							{
-								text: 'Ні',
-								callback_data: `is_want_induct false`,
-							},
-						],
-					],
-				},
-			}
-
-			await bot.sendMessage(
-				chatId,
-				`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
-			)
-
-			await bot.sendMessage(
-				chatId,
-				`Бажаєте ознайомитись з товаром?`,
-				itemOptions
-			)
-		} else if (
-			state[chatId]?.productName ===
-			'Тактичний утеплений лонгслів 5.45style з місцем під жетон'
-		) {
-			const category = '/shtany/'
-
-			const clothe = clothes[category].find(
-				clothe => clothe.name === 'Тактичні штани 5.45style чорні жіночі'
-			)
-			const itemOptions = {
-				reply_markup: {
-					inline_keyboard: [
-						[
-							{
-								text: 'Так',
-								callback_data: `is_want_induct true ${category} ${clothe.id}`,
-							},
-							{
-								text: 'Ні',
-								callback_data: `is_want_induct false`,
-							},
-						],
-					],
-				},
-			}
-
-			await bot.sendMessage(
-				chatId,
-				`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
-			)
-
-			await bot.sendMessage(
-				chatId,
-				`Бажаєте ознайомитись з товаром?`,
-				itemOptions
-			)
-		} else if (
-			state[chatId]?.productName === 'Тактичні штани 5.45style чорні жіночі'
-		) {
-			const category = '/futbolky/'
-
-			const clothe = clothes[category].find(
-				clothe =>
-					clothe.name ===
-					'Тактичний утеплений лонгслів 5.45style з місцем під жетон'
-			)
-			const itemOptions = {
-				reply_markup: {
-					inline_keyboard: [
-						[
-							{
-								text: 'Так',
-								callback_data: `is_want_induct true ${category} ${clothe.id}`,
-							},
-							{
-								text: 'Ні',
-								callback_data: `is_want_induct false`,
-							},
-						],
-					],
-				},
-			}
-
-			await bot.sendMessage(
-				chatId,
-				`Разом з товаром що ви обрали найчастіше замовлять: ${clothe.name}!`
-			)
-
-			await bot.sendMessage(
-				chatId,
-				`Бажаєте ознайомитись з товаром?`,
-				itemOptions
-			)
-		} else {
-			const category = '/holovni-ubory/'
-			const isManClothe = !state[chatId]?.productName.includes('жіноч')
-
-			const manOrWomanClothes = clothes[category].filter(clothe =>
-				!isManClothe
-					? clothe.name.includes('жіноч')
-					: !clothe.name.includes('жіноч')
-			)
-
-			const categoryClothesLength = manOrWomanClothes.length
-			const idOfRandomClothe = getRandomInt(0, categoryClothesLength - 1)
-
-			const randomClothe = manOrWomanClothes.find(
-				(clothe, i) => i === Number(idOfRandomClothe)
-			)
-
-			const itemOptions = {
-				reply_markup: {
-					inline_keyboard: [
-						[
-							{
-								text: 'Так',
-								callback_data: `is_want_induct true ${category} ${randomClothe.id}`,
-							},
-							{
-								text: 'Ні',
-								callback_data: `is_want_induct false`,
-							},
-						],
-					],
-				},
-			}
-
-			await bot.sendMessage(
-				chatId,
-				`Разом з товаром що ви обрали найчастіше замовлять: ${randomClothe.name}!`
-			)
-
-			await bot.sendMessage(
-				chatId,
-				`Бажаєте ознайомитись з товаром?`,
-				itemOptions
-			)
-		}
-		await bot.sendMessage(
-			chatForOrdersId,
-			`
-			\n Ім'я: ${state[chatId]?.fullName}
-			\nНомер телефону: ${state[chatId]?.phoneNumber}
-			\nМісто: ${state[chatId]?.city}
-			\nВідділення пошти: ${state[chatId]?.mail}
-			\nТовар: ${state[chatId]?.productName}
-			\nТип оплати: ${state[chatId]?.paymentType === 'imposed' ? 'наложка' : 'онлайн'}
-			\nUPD: товар замовили за допомогою бота
-		`
-		)
-
-		state[chatId] = {}
-		return
+		await bot.sendMessage(chatId, `Відправте фото!`)
 	}
 })
