@@ -1,10 +1,11 @@
 const TelegramBot = require('node-telegram-bot-api')
-
+const https = require('https')
 const sharp = require('sharp')
 // const token = '6965202334:AAEcJYVXE_NehXzEZ2NtjjdIHUT3PEvZGwQ'
 const token = '6085919277:AAGvJfRHmmSVj9FZJFOnhKWaJgJRrc1UwkI'
 const bot = new TelegramBot(token, { polling: true })
-const chatForOrdersId = '-1001731459101'
+// const chatForOrdersId = '-1001731459101'
+const chatForOrdersId = '-1002123218064'
 const fs = require('fs')
 
 const clothes = JSON.parse(fs.readFileSync('clothes.json', 'utf8'))
@@ -91,27 +92,30 @@ bot.on('message', async msg => {
 		const fileId = photo.file_id
 
 		bot.getFile(fileId).then(fileInfo => {
-			const fileUrl = `https://api.telegram.org/file/bot${'YOUR_BOT_TOKEN'}/${
-				fileInfo.file_path
-			}`
+			const fileUrl = `https://api.telegram.org/file/bot${token}/${fileInfo.file_path}`
 
 			const imageStream = fs.createWriteStream('downloaded_image.jpg')
 			https.get(fileUrl, response => {
+				response.on('end', () => {
+					sharp('downloaded_image.jpg')
+						.resize(300, 200)
+						.toFile('processed_image.jpg', (err, info) => {
+							if (!err) {
+								// Пересылаем обработанное изображение в другой чат
+								bot.sendPhoto(chatForOrdersId, 'processed_image.jpg', {
+									caption: 'Обработанное изображение',
+								})
+							} else {
+								console.error(err)
+							}
+						})
+				})
+
 				response.pipe(imageStream)
 
-				sharp('downloaded_image.jpg')
-					.resize(300, 200)
-					.toFile('processed_image.jpg', (err, info) => {
-						if (!err) {
-							// Пересылаем обработанное изображение в другой чат
-							const targetChatId = 'TARGET_CHAT_ID' // Замените на реальный идентификатор чата
-							bot.sendPhoto(targetChatId, 'processed_image.jpg', {
-								caption: 'Обработанное изображение',
-							})
-						} else {
-							console.error(err)
-						}
-					})
+				imageStream.on('error', err => {
+					console.error('Error saving image file:', err)
+				})
 			})
 		})
 	} else {
@@ -361,7 +365,6 @@ bot.on('callback_query', async query => {
 
 // Обработка ответа на запрос данных пользователя
 bot.on('text', async msg => {
-	console.log(msg?.text)
 	const chatId = msg.chat.id
 
 	if (
@@ -1076,17 +1079,13 @@ bot.on('text', async msg => {
 					? clothe.name.includes('жіноч')
 					: !clothe.name.includes('жіноч')
 			)
-			console.log(manOrWomanClothes)
 
 			const categoryClothesLength = manOrWomanClothes.length
-			console.log(categoryClothesLength)
 			const idOfRandomClothe = getRandomInt(0, categoryClothesLength - 1)
-			console.log(idOfRandomClothe)
 
 			const randomClothe = manOrWomanClothes.find(
 				(clothe, i) => i === Number(idOfRandomClothe)
 			)
-			console.log(randomClothe)
 
 			const itemOptions = {
 				reply_markup: {
@@ -1116,18 +1115,18 @@ bot.on('text', async msg => {
 				itemOptions
 			)
 		}
-		// await bot.sendMessage(
-		// 	chatForOrdersId,
-		// 	`
-		// 	\n Ім'я: ${state[chatId]?.fullName}
-		// 	\nНомер телефону: ${state[chatId]?.phoneNumber}
-		// 	\nМісто: ${state[chatId]?.city}
-		// 	\nВідділення пошти: ${state[chatId]?.mail}
-		// 	\nТовар: ${state[chatId]?.productName}
-		// 	\nТип оплати: ${state[chatId]?.paymentType === 'imposed' ? 'наложка' : 'онлайн'}
-		// 	\nUPD: товар замовили за допомогою бота
-		// `
-		// )
+		await bot.sendMessage(
+			chatForOrdersId,
+			`
+			\n Ім'я: ${state[chatId]?.fullName}
+			\nНомер телефону: ${state[chatId]?.phoneNumber}
+			\nМісто: ${state[chatId]?.city}
+			\nВідділення пошти: ${state[chatId]?.mail}
+			\nТовар: ${state[chatId]?.productName}
+			\nТип оплати: ${state[chatId]?.paymentType === 'imposed' ? 'наложка' : 'онлайн'}
+			\nUPD: товар замовили за допомогою бота
+		`
+		)
 
 		state[chatId] = {}
 		return
