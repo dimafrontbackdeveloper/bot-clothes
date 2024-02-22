@@ -1,11 +1,11 @@
 const TelegramBot = require('node-telegram-bot-api')
 const https = require('https')
 const sharp = require('sharp')
-// const token = '6965202334:AAEcJYVXE_NehXzEZ2NtjjdIHUT3PEvZGwQ'
-const token = '6085919277:AAGvJfRHmmSVj9FZJFOnhKWaJgJRrc1UwkI'
+const token = '6965202334:AAEcJYVXE_NehXzEZ2NtjjdIHUT3PEvZGwQ'
+// const token = '6085919277:AAGvJfRHmmSVj9FZJFOnhKWaJgJRrc1UwkI'
 const bot = new TelegramBot(token, { polling: true })
-// const chatForOrdersId = '-1001731459101'
-const chatForOrdersId = '-1002123218064'
+const chatForOrdersId = '-1001731459101'
+// const chatForOrdersId = '-1002123218064'
 const fs = require('fs')
 
 const clothes = JSON.parse(fs.readFileSync('clothes.json', 'utf8'))
@@ -86,6 +86,7 @@ const state = {}
 
 bot.on('message', async msg => {
 	const chatId = msg.chat.id
+	console.log(state[chatId])
 
 	if (msg.photo) {
 		if (
@@ -103,14 +104,6 @@ bot.on('message', async msg => {
 			await bot.getFile(fileId).then(fileInfo => {
 				const fileUrl = `https://api.telegram.org/file/bot${token}/${fileInfo.file_path}`
 
-				// Создаем поток для сохранения изображения
-				const imageStream = fs.createWriteStream('downloaded_image.jpg')
-
-				// Обработка ошибок при загрузке изображения
-				imageStream.on('error', err => {
-					console.error('Error saving image file:', err)
-				})
-
 				// Загружаем изображение
 				https.get(fileUrl, response => {
 					if (response.statusCode !== 200) {
@@ -121,36 +114,34 @@ bot.on('message', async msg => {
 						return
 					}
 
-					// Пайпим поток ответа в поток сохранения изображения
-					response.pipe(imageStream)
+					let imageData = Buffer.from([])
+
+					// Собираем данные изображения в буфер
+					response.on('data', chunk => {
+						imageData = Buffer.concat([imageData, chunk])
+					})
 
 					// Обработка события завершения загрузки изображения
-					imageStream.on('finish', () => {
-						// Закрываем поток перед обработкой изображения
-						imageStream.end()
-
-						// Обрабатываем изображение с помощью sharp
-						sharp('downloaded_image.jpg').toFile(
-							'processed_image.jpg',
-							(err, info) => {
-								if (!err) {
-									// Пересылаем обработанное изображение в другой чат
-									bot.sendPhoto(chatForOrdersId, 'processed_image.jpg', {
-										caption: `
-																\n Ім'я: ${state[chatId]?.fullName}
-																\nНомер телефону: ${state[chatId]?.phoneNumber}
-																\nМісто: ${state[chatId]?.city}
-																\nВідділення пошти: ${state[chatId]?.mail}
-																\nТовар: ${state[chatId]?.productName}
-																\nТип оплати: ${state[chatId]?.paymentType === 'imposed' ? 'наложка' : 'онлайн'}
-																\nUPD: товар замовили за допомогою бота
-														`,
-									})
-								} else {
-									console.error('Error processing image:', err)
-								}
+					response.on('end', () => {
+						// Обрабатываем изображение с помощью sharp в памяти
+						sharp(imageData).toBuffer((err, processedImage) => {
+							if (!err) {
+								// Пересылаем обработанное изображение в другой чат
+								bot.sendPhoto(chatForOrdersId, processedImage, {
+									caption: `
+																		\n Ім'я: ${state[chatId]?.fullName}
+																		\nНомер телефону: ${state[chatId]?.phoneNumber}
+																		\nМісто: ${state[chatId]?.city}
+																		\nВідділення пошти: ${state[chatId]?.mail}
+																		\nТовар: ${state[chatId]?.productName}
+																		\nТип оплати: ${state[chatId]?.paymentType === 'imposed' ? 'наложка' : 'онлайн'}
+																		\nUPD: товар замовили за допомогою бота
+																`,
+								})
+							} else {
+								console.error('Error processing image:', err)
 							}
-						)
+						})
 					})
 				})
 			})
@@ -918,6 +909,8 @@ bot.on('callback_query', async query => {
 	const clothingType = query.data
 	const clothe = state[chatId].clothe
 
+	console.log(state[chatId])
+
 	// Обработка выбора типа кофт
 	if (clothingType === 'warm' || clothingType === 'not_warm') {
 		const category =
@@ -1101,6 +1094,7 @@ bot.on('callback_query', async query => {
 // Обработка ответа на запрос данных пользователя
 bot.on('text', async msg => {
 	const chatId = msg.chat.id
+	console.log(state[chatId])
 
 	if (
 		!!state[chatId]?.productName &&
@@ -1159,6 +1153,30 @@ bot.on('text', async msg => {
 	) {
 		state[chatId].mail = msg.text
 
-		await bot.sendMessage(chatId, `Відправте фото!`)
+		if (state[chatId]?.paymentType === 'imposed') {
+			await bot.sendMessage(
+				chatId,
+				`
+			Надішліть передоплату у розмірі 200грн на
+			карту: 5375411402901206 Терез А.
+			або 
+			на IBAN: ФОП Терез Артем Володимирович IBAN UA053220010000026004320012081 ІПН/ЄДРПОУ 3392401775 Акціонерне товариство УНІВЕРСАЛ БАНК МФО 322001 ЄДРПОУ Банку 21133352
+			
+			Після оплати надішліть фото квитанції у бота!
+			`
+			)
+		} else {
+			await bot.sendMessage(
+				chatId,
+				`
+			Надішліть оплату на
+			карту: 5375411402901206 Терез А.
+			або 
+			на IBAN: ФОП Терез Артем Володимирович IBAN UA053220010000026004320012081 ІПН/ЄДРПОУ 3392401775 Акціонерне товариство УНІВЕРСАЛ БАНК МФО 322001 ЄДРПОУ Банку 21133352
+			
+			Після оплати надішліть фото квитанції у бота!
+			`
+			)
+		}
 	}
 })
